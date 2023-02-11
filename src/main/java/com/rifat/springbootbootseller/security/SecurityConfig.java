@@ -1,6 +1,9 @@
 package com.rifat.springbootbootseller.security;
 
+import com.rifat.springbootbootseller.model.Role;
+import com.rifat.springbootbootseller.security.jwt.JwtAuthorizationFilter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -12,12 +15,16 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Value("${authentication.internal-api-key}")
+    private String internalApiKey;
     @Autowired
     private CustomUserDetailsService userDetailsService;
 
@@ -40,10 +47,28 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
        http.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
        http.authorizeRequests()
                .antMatchers("/api/authentication/**")
+
                .permitAll()
+               .antMatchers("/api/internal/**")
+               .hasRole(Role.SYSTEM_MANAGER.name())
                .anyRequest().authenticated();
 
+       http.addFilterBefore(jwtAuthorizationFilter(), UsernamePasswordAuthenticationFilter.class)
+               .addFilterBefore(internalApiAuthenticationFilter(), JwtAuthorizationFilter.class)
+       ;
+
     }
+
+
+    @Bean
+    public InternalApiAuthenticationFilter internalApiAuthenticationFilter() {
+        return new InternalApiAuthenticationFilter(internalApiKey);
+    }
+    @Bean
+    public JwtAuthorizationFilter jwtAuthorizationFilter() {
+        return new JwtAuthorizationFilter();
+    }
+
 
     @Bean
     public PasswordEncoder passwordEncoder () {
